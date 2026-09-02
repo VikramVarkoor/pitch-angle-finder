@@ -180,3 +180,8 @@ request after a period of idling can take 30-60 seconds while it wakes back up.
 - The model can occasionally produce angles that lean on the same newsworthy hook twice
   despite being told not to; the prompt asks for distinct angles but there's no hard
   programmatic dedup on hook type.
+- The model sometimes invents specifics for the "human interest" angle (a founder backstory,
+  a customer name) that weren't in the input, despite the prompt explicitly telling it not to
+  fabricate facts. This is a real, observed failure mode, not a hypothetical one -- worth
+  rereading the output before treating any angle as usable, and worth mentioning honestly
+  rather than presenting the tool as fully reliable.
