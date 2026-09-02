@@ -89,6 +89,43 @@ def test_pitch_angles_rejects_short_input():
     assert response.status_code == 422
 
 
+def test_pitch_angles_retries_when_too_few_angles():
+    """Groq sometimes ignores the '2 to 3 angles' instruction and returns just
+    one (observed live, not hypothetical). The endpoint should retry rather
+    than passing a 1-angle response straight to the frontend."""
+    too_few_json = json.dumps({"angles": [json.loads(FAKE_GROQ_JSON)["angles"][0]]})
+
+    fake_message_bad = MagicMock()
+    fake_message_bad.content = too_few_json
+    fake_choice_bad = MagicMock()
+    fake_choice_bad.message = fake_message_bad
+    fake_completion_bad = MagicMock()
+    fake_completion_bad.choices = [fake_choice_bad]
+
+    fake_message_good = MagicMock()
+    fake_message_good.content = FAKE_GROQ_JSON
+    fake_choice_good = MagicMock()
+    fake_choice_good.message = fake_message_good
+    fake_completion_good = MagicMock()
+    fake_completion_good.choices = [fake_choice_good]
+
+    fake_client = MagicMock()
+    fake_client.chat.completions.create.side_effect = [fake_completion_bad, fake_completion_good]
+
+    with patch("app.main.get_client", return_value=fake_client):
+        response = client.post(
+            "/api/pitch-angles",
+            json={
+                "description": "A description that is definitely long enough to pass validation "
+                "and trigger a real retry."
+            },
+        )
+
+    assert response.status_code == 200
+    assert len(response.json()["angles"]) == 2
+    assert fake_client.chat.completions.create.call_count == 2
+
+
 def test_pitch_angles_handles_bad_json_from_groq():
     fake_message = MagicMock()
     fake_message.content = "not valid json {{"

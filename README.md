@@ -185,3 +185,9 @@ request after a period of idling can take 30-60 seconds while it wakes back up.
   fabricate facts. This is a real, observed failure mode, not a hypothetical one -- worth
   rereading the output before treating any angle as usable, and worth mentioning honestly
   rather than presenting the tool as fully reliable.
+- Groq's JSON mode itself isn't perfectly reliable: on live testing it occasionally (a) returns
+  only 1 angle despite the prompt asking for 2-3, or (b) fails outright to produce valid JSON
+  for a given call. The backend now retries the Groq call up to 3 times when either of those
+  happens before giving up and returning a 502 -- this is a real retry over the real API, not a
+  cosmetic fix, and it's covered by a test (`test_pitch_angles_retries_when_too_few_angles`).
+  It's still possible, if unlikely, to see a "something went wrong" error if all 3 attempts fail.
