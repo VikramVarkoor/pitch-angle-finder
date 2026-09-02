@@ -50,7 +50,9 @@ export default function Home() {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-12">
       <header className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Pitch Angle Finder</h1>
+        <h1 className="bg-gradient-to-r from-violet-600 via-fuchsia-500 to-sky-500 bg-clip-text text-2xl font-semibold tracking-tight text-transparent">
+          Pitch Angle Finder
+        </h1>
         <p className="text-sm leading-relaxed text-neutral-600">
           Describe a company or product and get 2-3 realistic PR pitch angles a journalist might
           actually cover, each with the concrete reason it clears a real newsroom&apos;s bar.
@@ -84,7 +86,7 @@ export default function Home() {
           <button
             type="submit"
             disabled={loading}
-            className="rounded-lg bg-neutral-900 px-5 py-2 text-sm font-medium text-white transition hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg bg-gradient-to-r from-violet-600 to-sky-500 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? "Finding angles..." : "Find pitch angles"}
           </button>
@@ -100,7 +102,10 @@ export default function Home() {
       {angles && (
         <section className="flex flex-col gap-4">
           {angles.map((a, i) => (
-            <article key={i} className="flex flex-col gap-2 rounded-xl border border-neutral-200 p-4 shadow-sm">
+            <article
+              key={i}
+              className="flex flex-col gap-2 rounded-xl border border-neutral-200 bg-white/80 p-4 shadow-sm backdrop-blur-sm"
+            >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-base font-semibold">{a.headline}</h2>
                 <span
