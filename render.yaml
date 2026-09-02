@@ -9,6 +9,8 @@ services:
     envVars:
       - key: GROQ_API_KEY
         sync: false
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b
       - key: ALLOWED_ORIGINS
         value: https://pitch-angle-finder.vercel.app
       - key: PYTHON_VERSION
