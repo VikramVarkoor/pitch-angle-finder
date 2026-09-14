@@ -9,9 +9,17 @@ angle" problem space in PR/media tech. **It is not affiliated with, built for, o
 any specific company's product** — it's my own small implementation of a similar idea, built
 to show real, working use of an LLM API, a Python backend, and a TypeScript frontend.
 
-**Live app:** https://pitch-angle-finder.vercel.app
-**API:** https://pitch-angle-finder-api.onrender.com (free tier — first request after a period
-of idling can take 30-60s while it wakes up)
+**Live app (Vercel):** https://pitch-angle-finder.vercel.app
+**API (Render):** https://pitch-angle-finder-api.onrender.com (free tier — first request after a
+period of idling can take 30-60s while it wakes up)
+
+**Live app (Azure):** https://icy-meadow-0959e1910.6.azurestaticapps.net
+**API (Azure):** https://pitch-angle-finder-api-vv.azurewebsites.net
+
+The Render/Vercel deployment above is the original and stays untouched. The Azure deployment
+is a second, independent, fully-working copy of the same app, built specifically to get real
+hands-on Azure experience (App Service + Static Web Apps + GitHub Actions CI/CD), documented
+in detail in the "Azure deployment" section below.
 
 ## What it does
 
@@ -170,6 +178,73 @@ Without the blueprint, do it manually: **New Web Service** from the repo, root d
 
 Note the free tiers: Render's free web services spin down after inactivity, so the first
 request after a period of idling can take 30-60 seconds while it wakes back up.
+
+## Azure deployment (App Service + Static Web Apps + GitHub Actions)
+
+This is a second, real deployment of the same app on Microsoft Azure, done to get genuine
+hands-on experience with Azure App Service, Azure Static Web Apps, and Azure-triggered
+GitHub Actions CI/CD. It runs side by side with the Render/Vercel deployment above; nothing
+about the original deployment was touched.
+
+**What's live:**
+- Backend: [pitch-angle-finder-api-vv.azurewebsites.net](https://pitch-angle-finder-api-vv.azurewebsites.net)
+  — Azure App Service (Linux, native Python 3.11 runtime, Basic B1 plan, `centralus`)
+- Frontend: [icy-meadow-0959e1910.6.azurestaticapps.net](https://icy-meadow-0959e1910.6.azurestaticapps.net)
+  — Azure Static Web Apps (Free tier, static export of the Next.js app)
+
+**How it's built and deployed:**
+
+- The backend deploys via [`.github/workflows/azure-backend.yml`](.github/workflows/azure-backend.yml):
+  on every push to `main` that touches `backend/**`, GitHub Actions zips the `backend/` folder
+  and pushes it to App Service via `azure/webapps-deploy@v3`, authenticated with a publish
+  profile stored as the `AZURE_WEBAPP_PUBLISH_PROFILE` repo secret. `GROQ_API_KEY`, `GROQ_MODEL`,
+  and `ALLOWED_ORIGINS` are set as App Service application settings (environment variables),
+  never committed to the repo.
+- The frontend was switched to a static export (`output: "export"` in `next.config.ts`) since
+  it's a pure client-side app with no API routes or server components — this lets it run on
+  Static Web Apps' actual Free tier instead of the paid Standard/hybrid-rendering tier that
+  Next.js SSR would need.
+- The Static Web Apps GitHub Actions workflow
+  ([`.github/workflows/azure-static-web-apps-icy-meadow-0959e1910.yml`](.github/workflows/azure-static-web-apps-icy-meadow-0959e1910.yml))
+  was scaffolded automatically by `az staticwebapp create --login-with-github` — Azure created
+  the workflow file, committed it to the repo, and wired up its own deployment token secret
+  without any manual GitHub Actions setup. `NEXT_PUBLIC_API_URL` is set as a build-time env var
+  in that workflow (Next static export inlines env vars at build time, not runtime).
+- Both workflows are genuinely push-triggered, not just present in the repo unused — confirmed
+  by pushing real commits and watching both pipelines run end to end via `gh run watch`.
+
+**Real issues hit and how they actually got resolved (not "just worked"):**
+
+1. **F1 (free tier) quota was 0 in `eastus` on a brand-new subscription.** `az appservice plan
+   create --sku F1` failed with "Operation cannot be completed without additional quota" even
+   though nothing had been deployed yet. This is a known new-subscription quirk — free-tier
+   quota is granted per-region, not account-wide. Switching the resource group's region to
+   `centralus` resolved it immediately, no support ticket needed.
+2. **The App Service then hit `QuotaExceeded` and stopped itself** on the F1 plan shortly after
+   creation. Free-tier App Service has a hard daily CPU-minute cap and new/trial subscriptions
+   can hit it fast. Fix: upgraded the plan from F1 to B1 (Basic) — still covered by Azure's free
+   trial credit, not a real charge, and it doesn't have this quota ceiling.
+3. **`azure/webapps-deploy@v3` failed with "Publish profile is invalid for app-name and
+   slot-name provided"** even with a correctly-formatted, freshly-downloaded publish profile.
+   Root cause: Azure now disables **Basic Auth publishing credentials** by default on new App
+   Service resources (a security default rolled out over the last couple of years) — the SCM/Kudu
+   endpoint that `webapps-deploy` authenticates against with the publish profile's
+   username/password literally refuses Basic Auth until it's explicitly re-enabled. Fixed with:
+   ```
+   az resource update --resource-group pitch-angle-finder-rg --name scm \
+     --namespace Microsoft.Web --resource-type basicPublishingCredentialsPolicies \
+     --parent sites/pitch-angle-finder-api-vv --set properties.allow=true
+   ```
+   (and the same for `ftp`), then re-pulling a fresh publish profile since the one generated
+   while Basic Auth was off carried non-functional credentials.
+4. **GitHub blocked the first push that added a workflow file** — "refusing to allow an OAuth
+   App to create or update workflow `.github/workflows/azure-backend.yml` without `workflow`
+   scope." The initial GitHub device-flow authorization was requested with only the `repo`
+   scope; re-authorizing with `repo workflow` scope fixed it. A real GitHub permissions
+   boundary, not an Azure one, but part of actually getting CI/CD working end to end.
+
+None of these were config files that merely "should work" — each was a real failure with a real
+error message, reproduced and fixed against the live Azure resources above.
 
 ## Known limitations
 
