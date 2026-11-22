@@ -6,20 +6,20 @@ would plausibly cover it.
 
 This was built as an independent demo project to explore the "match a story to a newsworthy
 angle" problem space in PR/media tech. **It is not affiliated with, built for, or a copy of
-any specific company's product** — it's my own small implementation of a similar idea, built
+any specific company's product** - it's my own small implementation of a similar idea, built
 to show real, working use of an LLM API, a Python backend, and a TypeScript frontend.
 
 **Live app (Vercel):** https://pitch-angle-finder.vercel.app
-**API (Render):** https://pitch-angle-finder-api.onrender.com (free tier — first request after a
+**API (Render):** https://pitch-angle-finder-api.onrender.com (free tier - first request after a
 period of idling can take 30-60s while it wakes up)
 
-**Live app (Azure):** https://icy-meadow-0959e1910.6.azurestaticapps.net
-**API (Azure):** https://pitch-angle-finder-api-vv.azurewebsites.net
+**Live app (Azure):** https://pafweb27309.z1.web.core.windows.net
+**API (Azure):** https://pitch-angle-finder-api-vv2.azurewebsites.net
 
 The Render/Vercel deployment above is the original and stays untouched. The Azure deployment
 is a second, independent, fully-working copy of the same app, built specifically to get real
-hands-on Azure experience (App Service + Static Web Apps + GitHub Actions CI/CD), documented
-in detail in the "Azure deployment" section below.
+hands-on Azure experience (App Service + Blob Storage static hosting), documented in detail in
+the "Azure deployment" section below.
 
 ## What it does
 
@@ -32,7 +32,7 @@ in detail in the "Azure deployment" section below.
    reporter/outlet it would realistically go to.
 4. The frontend renders them as cards.
 
-Nothing here is templated or hardcoded — every result comes from a live call to Groq.
+Nothing here is templated or hardcoded - every result comes from a live call to Groq.
 
 ## Real stack (exactly what's used, nothing else)
 
@@ -43,10 +43,12 @@ Nothing here is templated or hardcoded — every result comes from a live call t
   configurable via the `GROQ_MODEL` env var if Groq rotates models again -- see
   [console.groq.com/docs/deprecations](https://console.groq.com/docs/deprecations).)
 - **Backend**: Python 3 + [FastAPI](https://fastapi.tiangolo.com/), one real endpoint
-  (`POST /api/pitch-angles`) plus health/root endpoints. Deployed on **Render** (free tier).
+  (`POST /api/pitch-angles`) plus health/root endpoints. Deployed on **Render** (free tier)
+  and on **Azure App Service** (free F1 plan).
 - **Frontend**: [Next.js](https://nextjs.org/) (App Router) + TypeScript, a single page with a
-  form and a results view. Deployed on **Vercel** (free tier).
-- Styling is Tailwind CSS. No database, no auth, no other services — this is intentionally
+  form and a results view. Deployed on **Vercel** (free tier) and as a static export on
+  **Azure Blob Storage static website hosting**.
+- Styling is Tailwind CSS. No database, no auth, no other services - this is intentionally
   small and demo-able in a few minutes.
 
 ## How the Groq API is actually used
@@ -162,7 +164,7 @@ The repo includes a [`render.yaml`](render.yaml) blueprint, so the easy path is:
 1. Push this repo to GitHub (already done here).
 2. In Render: **New +** → **Blueprint** → select the repo. Render reads `render.yaml` and
    pre-fills the build/start commands and plan.
-3. It'll prompt for `GROQ_API_KEY` (marked as a secret, not committed) — paste your own key.
+3. It'll prompt for `GROQ_API_KEY` (marked as a secret, not committed) - paste your own key.
 4. Click **Apply**. Render gives you a URL like `https://pitch-angle-finder-api.onrender.com`.
 
 Without the blueprint, do it manually: **New Web Service** from the repo, root directory
@@ -179,79 +181,118 @@ Without the blueprint, do it manually: **New Web Service** from the repo, root d
 Note the free tiers: Render's free web services spin down after inactivity, so the first
 request after a period of idling can take 30-60 seconds while it wakes back up.
 
-## Azure deployment (App Service + Static Web Apps + GitHub Actions)
+## Azure deployment (App Service + Blob Storage static website)
 
 This is a second, real deployment of the same app on Microsoft Azure, done to get genuine
-hands-on experience with Azure App Service, Azure Static Web Apps, and Azure-triggered
-GitHub Actions CI/CD. It runs side by side with the Render/Vercel deployment above; nothing
-about the original deployment was touched.
+hands-on experience with Azure App Service, Azure Storage, and deploying through the Azure CLI.
+It runs side by side with the Render/Vercel deployment above; nothing about the original
+deployment was touched.
+
+This app has been deployed to Azure twice. The first deployment (Sep 2026) ran on a free-trial
+subscription that later expired and was deleted. The current one (Nov 2026) is a rebuild on an
+Azure for Students subscription, and it hit a different set of problems. Both are documented
+below.
+
+### Current deployment (Nov 2026, Azure for Students)
 
 **What's live:**
-- Backend: [pitch-angle-finder-api-vv.azurewebsites.net](https://pitch-angle-finder-api-vv.azurewebsites.net)
-  — Azure App Service (Linux, native Python 3.11 runtime, Basic B1 plan, `centralus`)
-- Frontend: [icy-meadow-0959e1910.6.azurestaticapps.net](https://icy-meadow-0959e1910.6.azurestaticapps.net)
-  — Azure Static Web Apps (Free tier, static export of the Next.js app)
 
-**How it's built and deployed:**
+- Backend: [pitch-angle-finder-api-vv2.azurewebsites.net](https://pitch-angle-finder-api-vv2.azurewebsites.net)
+  - Azure App Service (Linux, Python 3.11, free F1 plan, `uaenorth`)
+- Frontend: [pafweb27309.z1.web.core.windows.net](https://pafweb27309.z1.web.core.windows.net)
+  - static export of the Next.js app, served by Azure Storage static website hosting (`uaenorth`)
 
-- The backend deploys via [`.github/workflows/azure-backend.yml`](.github/workflows/azure-backend.yml):
-  on every push to `main` that touches `backend/**`, GitHub Actions zips the `backend/` folder
-  and pushes it to App Service via `azure/webapps-deploy@v3`, authenticated with a publish
-  profile stored as the `AZURE_WEBAPP_PUBLISH_PROFILE` repo secret. `GROQ_API_KEY`, `GROQ_MODEL`,
-  and `ALLOWED_ORIGINS` are set as App Service application settings (environment variables),
-  never committed to the repo.
-- The frontend was switched to a static export (`output: "export"` in `next.config.ts`) since
-  it's a pure client-side app with no API routes or server components — this lets it run on
-  Static Web Apps' actual Free tier instead of the paid Standard/hybrid-rendering tier that
-  Next.js SSR would need.
-- The Static Web Apps GitHub Actions workflow
-  ([`.github/workflows/azure-static-web-apps-icy-meadow-0959e1910.yml`](.github/workflows/azure-static-web-apps-icy-meadow-0959e1910.yml))
-  was scaffolded automatically by `az staticwebapp create --login-with-github` — Azure created
-  the workflow file, committed it to the repo, and wired up its own deployment token secret
-  without any manual GitHub Actions setup. `NEXT_PUBLIC_API_URL` is set as a build-time env var
-  in that workflow (Next static export inlines env vars at build time, not runtime).
-- Both workflows are genuinely push-triggered, not just present in the repo unused — confirmed
-  by pushing real commits and watching both pipelines run end to end via `gh run watch`.
+**How it's deployed (all through the Azure CLI, signed in as myself, no publish profile):**
 
-**Real issues hit and how they actually got resolved (not "just worked"):**
+```
+# Backend
+az group create -n pitch-angle-finder-rg -l centralus
+az appservice plan create -g pitch-angle-finder-rg -n pitch-angle-finder-plan --is-linux --sku F1 -l uaenorth
+az webapp create -g pitch-angle-finder-rg -p pitch-angle-finder-plan -n pitch-angle-finder-api-vv2 --runtime "PYTHON:3.11"
+az webapp config set -g pitch-angle-finder-rg -n pitch-angle-finder-api-vv2 \
+  --startup-file "python -m uvicorn app.main:app --host 0.0.0.0 --port 8000"
+az webapp config appsettings set -g pitch-angle-finder-rg -n pitch-angle-finder-api-vv2 --settings \
+  SCM_DO_BUILD_DURING_DEPLOYMENT=true WEBSITES_PORT=8000 GROQ_MODEL=openai/gpt-oss-120b
+# GROQ_API_KEY and ALLOWED_ORIGINS are set the same way, never committed to the repo
+az webapp deploy -g pitch-angle-finder-rg -n pitch-angle-finder-api-vv2 --src-path backend.zip --type zip
+
+# Frontend (static export, API URL is inlined at build time)
+az storage account create -n <name> -g pitch-angle-finder-rg -l uaenorth --sku Standard_LRS --kind StorageV2
+az storage blob service-properties update --account-name <name> --static-website --index-document index.html --404-document 404.html
+NEXT_PUBLIC_API_URL=https://pitch-angle-finder-api-vv2.azurewebsites.net npm run build
+az storage blob upload-batch --account-name <name> -s frontend/out -d '$web' --overwrite
+```
+
+**Real issues hit on the redeploy:**
+
+1. **Region policy.** Student subscriptions only allow certain regions. Creating the App Service
+   plan in `centralus` failed with `RequestDisallowedByAzure`, even though the resource group
+   itself was created fine there. Trying candidate regions in a loop found that `uaenorth` is
+   allowed for an F1 plan.
+2. **Static Web Apps is not available on this subscription.** It can only be created in five
+   regions (`westus2`, `centralus`, `eastus2`, `westeurope`, `eastasia`), and all five were refused
+   by the same region policy. I moved the frontend to Azure Storage static website hosting in
+   `uaenorth`, using the same static export with no code change.
+3. **CORS.** The browser blocked the first API call from the new frontend, because the backend's
+   `ALLOWED_ORIGINS` did not include the storage website URL. Setting it as an App Service
+   application setting and restarting the app fixed it.
+4. **App name reserved.** The original app name was still unavailable after the old subscription
+   was deleted, so the backend has a `-vv2` suffix.
+
+**CI/CD status:** not set up for the current deployment yet. Deploys are manual CLI commands.
+The first deployment below did have working GitHub Actions pipelines.
+
+### First deployment (Sep 2026, free trial, since torn down)
+
+That deployment ran Azure App Service (Basic B1 plan, `centralus`) plus Azure Static Web Apps
+(Free tier), with two GitHub Actions workflows:
+
+- The backend workflow zipped the `backend/` folder and pushed it to App Service via
+  `azure/webapps-deploy@v3` on every push that touched `backend/**`, authenticated with a publish
+  profile stored as a repo secret.
+- The Static Web Apps workflow was scaffolded by `az staticwebapp create --login-with-github`,
+  with `NEXT_PUBLIC_API_URL` set as a build-time env var (Next static export inlines env vars at
+  build time, not runtime).
+- Both were confirmed push-triggered by pushing real commits and watching both pipelines run end
+  to end via `gh run watch`. The workflow files were removed from the repo after the free-trial
+  subscription expired; they are still in the git history.
+
+**Real issues hit then and how they got resolved:**
 
 1. **F1 (free tier) quota was 0 in `eastus` on a brand-new subscription.** `az appservice plan
    create --sku F1` failed with "Operation cannot be completed without additional quota" even
-   though nothing had been deployed yet. This is a known new-subscription quirk — free-tier
-   quota is granted per-region, not account-wide. Switching the resource group's region to
-   `centralus` resolved it immediately, no support ticket needed.
+   though nothing had been deployed yet. Free-tier quota is granted per region, not account-wide.
+   Switching the resource group's region to `centralus` resolved it, no support ticket needed.
 2. **The App Service then hit `QuotaExceeded` and stopped itself** on the F1 plan shortly after
-   creation. Free-tier App Service has a hard daily CPU-minute cap and new/trial subscriptions
-   can hit it fast. Fix: upgraded the plan from F1 to B1 (Basic) — still covered by Azure's free
-   trial credit, not a real charge, and it doesn't have this quota ceiling.
+   creation. Free-tier App Service has a daily CPU-minute cap and new/trial subscriptions can hit
+   it fast. Fix: upgraded the plan from F1 to B1 (Basic), covered by the free trial credit.
 3. **`azure/webapps-deploy@v3` failed with "Publish profile is invalid for app-name and
-   slot-name provided"** even with a correctly-formatted, freshly-downloaded publish profile.
-   Root cause: Azure now disables **Basic Auth publishing credentials** by default on new App
-   Service resources (a security default rolled out over the last couple of years) — the SCM/Kudu
-   endpoint that `webapps-deploy` authenticates against with the publish profile's
-   username/password literally refuses Basic Auth until it's explicitly re-enabled. Fixed with:
+   slot-name provided"** even with a correctly formatted, freshly downloaded publish profile.
+   Root cause: Azure disables **Basic Auth publishing credentials** by default on new App
+   Service resources. The SCM/Kudu endpoint that `webapps-deploy` authenticates against with the
+   publish profile's username/password refuses Basic Auth until it's explicitly re-enabled. Fixed with:
    ```
    az resource update --resource-group pitch-angle-finder-rg --name scm \
      --namespace Microsoft.Web --resource-type basicPublishingCredentialsPolicies \
      --parent sites/pitch-angle-finder-api-vv --set properties.allow=true
    ```
-   (and the same for `ftp`), then re-pulling a fresh publish profile since the one generated
+   (and the same for `ftp`), then re-pulling a fresh publish profile, since the one generated
    while Basic Auth was off carried non-functional credentials.
-4. **GitHub blocked the first push that added a workflow file** — "refusing to allow an OAuth
+4. **GitHub blocked the first push that added a workflow file** with "refusing to allow an OAuth
    App to create or update workflow `.github/workflows/azure-backend.yml` without `workflow`
    scope." The initial GitHub device-flow authorization was requested with only the `repo`
-   scope; re-authorizing with `repo workflow` scope fixed it. A real GitHub permissions
-   boundary, not an Azure one, but part of actually getting CI/CD working end to end.
+   scope; re-authorizing with `repo workflow` scope fixed it.
 
-None of these were config files that merely "should work" — each was a real failure with a real
-error message, reproduced and fixed against the live Azure resources above.
+Each of these was a real failure with a real error message, reproduced and fixed against live
+Azure resources.
 
 ## Known limitations
 
-- No streaming — the UI waits for the full Groq response before showing anything.
-- No persistence — nothing is saved between requests, there's no history or database.
+- No streaming - the UI waits for the full Groq response before showing anything.
+- No persistence - nothing is saved between requests, there's no history or database.
 - No auth or rate limiting, since this is a small demo, not a production product.
-- Render's free tier cold-starts, as noted above.
+- Render's free tier cold-starts, as noted above. The Azure copy runs on the free F1 plan, which
+  also cold-starts and has a daily CPU-minute cap.
 - The model can occasionally produce angles that lean on the same newsworthy hook twice
   despite being told not to; the prompt asks for distinct angles but there's no hard
   programmatic dedup on hook type.
@@ -266,3 +307,4 @@ error message, reproduced and fixed against the live Azure resources above.
   happens before giving up and returning a 502 -- this is a real retry over the real API, not a
   cosmetic fix, and it's covered by a test (`test_pitch_angles_retries_when_too_few_angles`).
   It's still possible, if unlikely, to see a "something went wrong" error if all 3 attempts fail.
+- Tests mock the Groq client, so they check the API contract, not the model's output quality.

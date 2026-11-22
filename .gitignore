@@ -16,3 +16,7 @@ frontend/tsconfig.tsbuildinfo
 # OS / editor
 .DS_Store
 *.swp
+
+frontend/out/
+frontend/.env
+backend.zip
