@@ -239,8 +239,7 @@ az storage blob upload-batch --account-name <name> -s frontend/out -d '$web' --o
 4. **App name reserved.** The original app name was still unavailable after the old subscription
    was deleted, so the backend has a `-vv2` suffix.
 
-**CI/CD status:** not set up for the current deployment yet. Deploys are manual CLI commands.
-The first deployment below did have working GitHub Actions pipelines.
+**CI/CD:** GitHub Actions deploys both halves on push to `main`. The backend workflow runs the tests, then deploys to App Service. The frontend workflow builds the Next.js static export and uploads it to the Blob static website. Both sign in to Azure with OIDC (federated credentials), so there is no stored Azure password or secret in the repo. The identity has only two scoped roles: Website Contributor on the web app and Storage Blob Data Contributor on the storage account.
 
 ### First deployment (Sep 2026, free trial, since torn down)
 
